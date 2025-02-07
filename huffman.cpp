@@ -59,7 +59,7 @@ int HuffmanTree::lookUp(char ch) {
 }
 
 string HuffmanTree::GetCode(char ch) {
-    if (!built)  // Ensure tree is built
+    if (!built)  // Cannot run if the tree is not built
         return "";
 
     // Get the Huffman code for the character using the index
@@ -79,7 +79,7 @@ string HuffmanTree::GetCode(int i) {
 }
 
 void HuffmanTree::PrintTable() {
-    if (!built) {  // Ensure tree is built
+    if (!built) {  // Cannot run if the tree is not built
         cout << "Tree not built." << endl;
         return;
     }
