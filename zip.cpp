@@ -1,4 +1,4 @@
-//My code
+// Program to compress a text file using Huffman encoding
 #include <iostream>
 #include <fstream>
 #include <map>
@@ -6,217 +6,229 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
+
 using namespace std;
 
 #include "huffman.h"
 #include "exceptions.h"
 
+// Function declarations
 vector<int> convertToAscii(string &line);
-vector<string> convertToCode (string &line, HuffmanTree& h, vector<int> ascii);
-void insertData (string &line, string &fileName, int &numChars, vector<int> &ascii, vector<string> &codes);
-void compress (string &line, HuffmanTree& h, vector<int> &ascii, vector<string> &codes);
-int numUniqueChars (string &line);
-int getFrequency (char &c, string &line);
+vector<string> convertToCode(string &line, HuffmanTree &h, vector<int> ascii);
+void insertData(string &line, string &fileName, int &numChars, vector<int> &ascii, vector<string> &codes);
+void compress(string &line, HuffmanTree &h, vector<int> &ascii, vector<string> &codes);
+int numUniqueChars(string &line);
+int getFrequency(char &c, string &line);
 
-int main(int argLength, const char* args[]) {
+int main(int argLength, const char *args[]) {
+    HuffmanTree h;
 
-	HuffmanTree h;
+    // Exit if the command line arguments are invalid
+    if (argLength > 3 || argLength < 2) {
+        cout << "Invalid args." << endl;
+        return 0;
+    }
 
-	//Exits if command line is invalid
-	if (argLength > 3 || argLength < 2) {
-		cout << "Invalid args." << endl;
-		return 0;
-	}
+    string inputLine;
+    string line;
+    int index = 1;
 
-	string inputLine;
-	string line;
+    // Skip extra command-line argument if provided
+    if (argLength == 3)
+        index++;
 
-	int index = 1;
+    ifstream sourceFile(args[index]);
 
-	if (argLength == 3) 
-		index++;
+    // Check if the input file can be opened
+    if (!sourceFile) {
+        cout << "File not found." << endl;
+        return 0;
+    }
 
-	ifstream sourceFile(args[index]);
+    // Read the entire file content into the string `line`
+    while (getline(sourceFile, inputLine))
+        line += inputLine + '\n';
 
-	if (!sourceFile) { 
-		cout << "File not found." << endl;
-		return 0;
-	}
+    // Map to track duplicate characters
+    map<char, bool> duplicate;
 
-	while (getline(sourceFile, inputLine)) 
-		line += inputLine + '\n';
+    // Initialize the map with all characters in the input line
+    for (int i = 0; i < line.length(); i++)
+        duplicate[line[i]] = false;
 
-	map<char, bool> duplicate;
+    // Insert unique characters and their frequencies into the Huffman Tree
+    for (int i = 0; i < line.length(); i++) {
+        if (!duplicate[line[i]]) {
+            duplicate[line[i]] = true;
+            h.insert(line[i], getFrequency(line[i], line));
+        }
+    }
 
-	for (int i = 0; i < line.length(); i++)
-		duplicate[line[i]] = false;
+    // Build the Huffman Tree based on character frequencies
+    h.build();
 
-	for (int i = 0; i < line.length(); i++) {
-		if (!duplicate[line[i]]) {
-			duplicate[line[i]] = true;
-			h.insert(line[i], getFrequency(line[i], line));
-		}
-	}
+    if (argLength == 3) {
+        string args1 = args[1];
 
-	h.build();
+        // Print the Huffman table if the "--t" argument is provided
+        if (args1 == "--t")
+            h.PrintTable();
+        else {
+            cout << "Invalid command." << endl;
+            return 0;
+        }
+    }
 
-	if (argLength == 3) {
-		string args1 = args[1];
+    string fileName = args[index];
 
-		if (args1 == "--t")
-			h.PrintTable();
+    if (fileName == "--help") {
+        cout << "--t       Display Huffman table." << endl;
+        cout << "--help    Get help with commands." << endl;
+    }
 
-		else {
-			cout << "Invalid command." << endl;
-			return 0;
-		}
-	}
+    // Prevent compression of files that are already compressed
+    int found = fileName.find(".zip");
+    if (found != -1) {
+        cout << "Cannot zip another zip file. Program terminated." << endl;
+        return 0;
+    }
 
-	string fileName = args[index];
+    int chars = numUniqueChars(line);
+    vector<int> ascii = convertToAscii(line);
+    vector<string> codes = convertToCode(line, h, ascii);
 
-	if (fileName == "--help") {
-		cout << "--t       Display Huffman table." << endl;
-		cout << "--help    Get help with commands." << endl;
-	}
+    // Insert encoded data into a new zip file
+    insertData(line, fileName, chars, ascii, codes);
 
-	int found = fileName.find(".zip");
+    // Compress the file and display the compression statistics
+    compress(line, h, ascii, codes);
 
-	if (found != -1) {
-		cout << "Cannot zip another zip file. Program terminated." << endl;
-		return 0;
-	}
-	int chars = numUniqueChars(line);
+    // Remove the original file after compression
+    remove(args[index]);
 
-	vector<int> ascii = convertToAscii(line);
-
-	vector<string> codes = convertToCode(line, h, ascii);
-
-	insertData(line, fileName, chars, ascii, codes);
-
-	compress(line, h, ascii, codes);
-
-	remove(args[index]);
-
-	sourceFile.close();
+    sourceFile.close();
 }
 
+vector<int> convertToAscii(string &line) {
+    vector<int> vector;
+    map<char, bool> duplicate;
 
-vector<int> convertToAscii (string &line) {
+    // Initialize the map with unique characters from the line
+    for (int i = 0; i < line.length(); i++)
+        duplicate[line[i]] = false;
 
-	vector<int> vector;
-	map<char, bool> duplicate;
+    // Convert unique characters to their ASCII values
+    for (int i = 0; i < line.length(); i++) {
+        if (!duplicate[line[i]]) {
+            duplicate[line[i]] = true;
+            char c = line[i];
+            int a = c;
+            vector.push_back(a);
+        }
+    }
 
-	for (int i = 0; i < line.length(); i++)
-		duplicate[line[i]] = false;
+    // Sort the ASCII values in ascending order
+    sort(vector.begin(), vector.end());
 
-
-	for (int i = 0; i < line.length(); i++) {
-		if (!duplicate[line[i]]) {
-			duplicate[line[i]] = true;
-			char c = line[i];
-			int a = c;
-			vector.push_back(a);
-
-
-		}
-	}
-
-	sort(vector.begin(), vector.end());
-
-	return vector;
-}
-vector<string> convertToCode (string &line, HuffmanTree& h, vector<int> ascii) {
-
-	vector<string> vector;
-	map<char, bool> duplicate;
-
-	for (int i = 0; i < line.length(); i++)
-		duplicate[line[i]] = false;
-
-	for (int i = 0; i < line.length(); i++) {
-		if (!duplicate[line[i]]) {
-			duplicate[line[i]] = true;
-			for (int j = 0; j < ascii.size(); j++) {
-				if (line[i] == char(ascii[j])) { 
-					string temp = h.GetCode(line[i]);
-					vector.push_back(temp);
-					break;
-				}
-			}
-		}
-	}
-
-	return vector;
+    return vector;
 }
 
-void insertData (string &line,string &fileName, int &numChars, vector<int> &ascii, vector<string> &codes) {
+vector<string> convertToCode(string &line, HuffmanTree &h, vector<int> ascii) {
+    vector<string> vector;
+    map<char, bool> duplicate;
 
-	ofstream zipFile(fileName + ".zip");
+    // Initialize the map with unique characters from the line
+    for (int i = 0; i < line.length(); i++)
+        duplicate[line[i]] = false;
 
-	zipFile << numChars << endl;
+    // Map each unique character to its corresponding Huffman code
+    for (int i = 0; i < line.length(); i++) {
+        if (!duplicate[line[i]]) {
+            duplicate[line[i]] = true;
+            for (int j = 0; j < ascii.size(); j++) {
+                if (line[i] == char(ascii[j])) {
+                    string temp = h.GetCode(line[i]);
+                    vector.push_back(temp);
+                    break;
+                }
+            }
+        }
+    }
 
-	for (int i = 0; i < numChars; i++)
-		zipFile << ascii[i] << " " << codes[i] << endl;
-
-	map<char, string> map;
-
-	for (int i = 0; i < ascii.size() && i < codes.size(); i++)
-		map[char(ascii[i])] = codes[i];
-
-	for (int i = 0; i < line.length(); i++)
-		zipFile << map[line[i]];
-
-	zipFile << endl;
+    return vector;
 }
 
-void compress (string &line, HuffmanTree& h, vector<int> &ascii, vector<string> &codes) {
+void insertData(string &line, string &fileName, int &numChars, vector<int> &ascii, vector<string> &codes) {
+    ofstream zipFile(fileName + ".zip");
 
-	int bitsize = 0;
+    // Write the number of unique characters
+    zipFile << numChars << endl;
 
-	for (int i = 0; i < ascii.size() && i < codes.size(); i++) { 
-		bitsize += h.GetFrequency(char(ascii[i])) * codes[i].length();
-	}
+    // Write the ASCII values and their corresponding Huffman codes
+    for (int i = 0; i < numChars; i++)
+        zipFile << ascii[i] << " " << codes[i] << endl;
 
-	double ratio;
+    map<char, string> map;
 
-	try {
-		ratio = (1 - ( (double) bitsize/(line.length() * 8)));
+    // Create a map for fast lookup of Huffman codes
+    for (int i = 0; i < ascii.size() && i < codes.size(); i++)
+        map[char(ascii[i])] = codes[i];
 
-	}
+    // Write the compressed data to the file
+    for (int i = 0; i < line.length(); i++)
+        zipFile << map[line[i]];
 
-	catch (DivisionByZero e) {
-		cout << "Division by zero error." << endl;
-	}
-
-	printf("File compressed to %d bits (%.2f%% less).\n", bitsize, ratio*100);
-
+    zipFile << endl;
 }
 
-int numUniqueChars (string &line) {
+void compress(string &line, HuffmanTree &h, vector<int> &ascii, vector<string> &codes) {
+    int bitsize = 0;
 
-	map<char, int> map;
+    // Calculate the total bit size of the compressed data
+    for (int i = 0; i < ascii.size() && i < codes.size(); i++) {
+        bitsize += h.GetFrequency(char(ascii[i])) * codes[i].length();
+    }
 
-	for (int i = 0; i < line.length(); i++)
-		map[line[i]] = 0;
+    double ratio;
 
-	int count = 0;
+    try {
+        // Compute the compression ratio
+        ratio = (1 - ((double)bitsize / (line.length() * 8)));
+    } catch (DivisionByZero e) {
+        cout << "Division by zero error." << endl;
+    }
 
-	for (int i = 0; i < line.length(); i++) {
-		if (map[line[i]] < 1) {
-			map[line[i]]++;
-			count++;
-		}
-	}
-	return count;
+    printf("File compressed to %d bits (%.2f%% less).\n", bitsize, ratio * 100);
 }
 
-int getFrequency (char &c, string &line) {
+int numUniqueChars(string &line) {
+    map<char, int> map;
 
-	int freq = 0;
+    // Initialize the map with all characters from the line
+    for (int i = 0; i < line.length(); i++)
+        map[line[i]] = 0;
 
-	for (int i = 0; i < line.length(); i++) {
-		if (line[i] == c)
-			freq++;
-	}
-	return freq;
+    int count = 0;
+
+    // Count the number of unique characters
+    for (int i = 0; i < line.length(); i++) {
+        if (map[line[i]] < 1) {
+            map[line[i]]++;
+            count++;
+        }
+    }
+
+    return count;
+}
+
+int getFrequency(char &c, string &line) {
+    int freq = 0;
+
+    // Count the frequency of the character in the line
+    for (int i = 0; i < line.length(); i++) {
+        if (line[i] == c)
+            freq++;
+    }
+
+    return freq;
 }
